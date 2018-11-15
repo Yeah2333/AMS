@@ -8,7 +8,7 @@ from ams import VERSION, logger
 from ams.helpers import Target, Schedule, Route, Simulator
 from ams.structures import (
     CLIENT, MessageHeader, Pose, RoutePoint,
-    EventLoop, Autoware, AutowareInterface, Vehicle, Dispatcher)
+    EventLoop, Autoware, AutowareInterface, Vehicle, Dispatcher, TrafficSignal)
 
 
 class Hook(object):
@@ -87,6 +87,13 @@ class Hook(object):
         return CLIENT.KVS.KEY_PATTERN_DELIMITER.join([
             Target.get_code(target),
             "schedules"])
+
+    @classmethod
+    def get_received_schedules_key(cls, target):
+        return CLIENT.KVS.KEY_PATTERN_DELIMITER.join([
+            cls.get_schedules_key(target),
+            "received"
+        ])
 
     @classmethod
     def get_transportation_config_key(cls, target_dispatcher, target_vehicle):
@@ -209,6 +216,11 @@ class Hook(object):
     @classmethod
     def set_schedules(cls, kvs_client, target, value, get_key=None, timestamp_string=None):
         key = cls.get_schedules_key(target)
+        return kvs_client.set(key, value, get_key, timestamp_string)
+
+    @classmethod
+    def set_received_schedules(cls, kvs_client, target, value, get_key=None, timestamp_string=None):
+        key = cls.get_received_schedules_key(target)
         return kvs_client.set(key, value, get_key, timestamp_string)
 
     @classmethod
@@ -413,15 +425,6 @@ class Hook(object):
         return Schedule.get_next_schedule_by_current_schedule_id(vehicle_schedules, vehicle_status.schedule_id).id
 
     @classmethod
-    def update_next_vehicle_schedule_end_time_with_current_time_and_duration(cls, vehicle_status, vehicle_schedules):
-        current_time = Schedule.get_time()
-        next_vehicle_schedule_index = cls.get_next_vehicle_schedule_index(vehicle_status, vehicle_schedules)
-        duration = vehicle_schedules[next_vehicle_schedule_index].period.end - \
-            vehicle_schedules[next_vehicle_schedule_index].period.start
-        vehicle_schedules[next_vehicle_schedule_index].period.start = current_time
-        vehicle_schedules[next_vehicle_schedule_index].period.end = current_time + duration
-
-    @classmethod
     def generate_lane_array_from_route_code(cls, maps_client, route_code):
         return maps_client.route.generate_lane_array(route_code)
 
@@ -476,6 +479,22 @@ class Hook(object):
             logger.info(
                 "cannot generate route_point for vehicle_location: {}".format(logger.pformat(vehicle_location)))
         return None
+
+    @classmethod
+    def generate_traffic_signal_schedules(cls, kvs_client, target_traffic_signal):
+        config = cls.get_config(kvs_client, target_traffic_signal, TrafficSignal.Config)
+        start_time = Schedule.get_time()
+        schedules = [Schedule.get_schedule_from_cycle([target_traffic_signal], config.cycle, start_time)]
+        cls.set_schedules(kvs_client, target_traffic_signal, schedules)
+
+    @classmethod
+    def update_next_vehicle_schedule_end_time_with_current_time_and_duration(cls, vehicle_status, vehicle_schedules):
+        current_time = Schedule.get_time()
+        next_vehicle_schedule_index = cls.get_next_vehicle_schedule_index(vehicle_status, vehicle_schedules)
+        duration = vehicle_schedules[next_vehicle_schedule_index].period.end - \
+            vehicle_schedules[next_vehicle_schedule_index].period.start
+        vehicle_schedules[next_vehicle_schedule_index].period.start = current_time
+        vehicle_schedules[next_vehicle_schedule_index].period.end = current_time + duration
 
     @classmethod
     def update_vehicle_location(cls, kvs_client, target):
@@ -577,6 +596,32 @@ class Hook(object):
         transportation_status.updated_at = Schedule.get_time()
         return cls.set_transportation_status(
             kvs_client, target_dispatcher, target_vehicle, transportation_status, get_key)
+
+    @classmethod
+    def update_traffic_signal_color(cls, kvs_client, target_traffic_signal):
+        traffic_signal_status = Hook.get_status(kvs_client, target_traffic_signal, TrafficSignal.Status)
+        traffic_signal_schedules = Hook.get_schedules(kvs_client, target_traffic_signal)
+        if traffic_signal_schedules is not None:
+
+            schedule = Schedule.get_schedule_by_specified_time(
+                traffic_signal_schedules, Schedule.get_time())
+            if schedule is not None:
+                if traffic_signal_status.light_color != schedule.event:
+                    traffic_signal_status.light_color = schedule.event
+                    Hook.set_status(kvs_client, target_traffic_signal, traffic_signal_status)
+
+    @classmethod
+    def update_traffic_signal_schedules(cls, kvs_client, target_traffic_signal, margin=60.0):
+        schedules = cls.get_schedules(kvs_client, target_traffic_signal)
+        config = cls.get_config(kvs_client, target_traffic_signal, TrafficSignal.Config)
+        current_time = Schedule.get_time()
+        while True:
+            start_time = schedules[-1].period.end
+            if current_time + margin <= start_time:
+                break
+            schedules.append(Schedule.get_schedule_from_cycle([target_traffic_signal], config.cycle, start_time))
+        schedules = list(filter(lambda x: current_time < x.period.end, schedules))
+        cls.set_schedules(kvs_client, target_traffic_signal, schedules)
 
     @classmethod
     def delete_config(cls, kvs_client, target):

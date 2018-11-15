@@ -78,6 +78,13 @@ class Condition(object):
         return 0 < len(vehicle_schedules)
 
     @classmethod
+    def schedules_exists(cls, kvs_client, target):
+        schedules = Hook.get_schedules(kvs_client, target)
+        if schedules is None:
+            return False
+        return 0 < len(schedules)
+
+    @classmethod
     def vehicle_status_schedule_id_initialized(cls, kvs_client, target_vehicle):
         vehicle_status = Hook.get_status(kvs_client, target_vehicle, Vehicle.Status)
         if vehicle_status is not None:
@@ -135,3 +142,10 @@ class Condition(object):
     def vehicle_config_exists(cls, kvs_client, target_vehicle):
         vehicle_config = Hook.get_config(kvs_client, target_vehicle, Vehicle.Config)
         return vehicle_config is not None
+
+    @classmethod
+    def on_schedule_close_to_the_end(cls, kvs_client, target, margin=5.0):
+        schedules = Hook.get_schedules(kvs_client, target)
+        if schedules is None:
+            return False
+        return schedules[-1].period.end < Schedule.get_time() + margin

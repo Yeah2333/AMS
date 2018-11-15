@@ -26,3 +26,6 @@ from ams.structures.vehicle import Vehicle
 from ams.structures.dispatcher import Dispatcher
 
 from ams.structures.autoware_interface import AutowareInterface
+
+from ams.structures.infra_controller import InfraController
+from ams.structures.traffic_signal import TrafficSignal

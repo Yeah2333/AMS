@@ -68,7 +68,7 @@ class Schedule(object):
             end_time = start_time + (elapse_time - phase_time)
             if phase_time < elapse_time:
                 break
-        return Schedule.new_schedule(targets, state, start_time, end_time)
+        return Schedule.new_schedule(targets, state, start_time=start_time, end_time=end_time)
 
     @staticmethod
     def get_schedule_by_id(schedules, schedule_id):
@@ -82,8 +82,24 @@ class Schedule(object):
         return list(map(lambda x: x.id, schedules)).index(schedule_id)
 
     @staticmethod
+    def get_schedule_index_by_specified_time(schedules, specified_time):
+        return list(map(lambda x: x.period.start <= specified_time < x.period.end, schedules)).index(True)
+
+    @staticmethod
+    def get_schedule_by_specified_time(schedules, specified_time):
+        schedule_index = Schedule.get_schedule_index_by_specified_time(schedules, specified_time)
+        return schedules[schedule_index]
+
+    @staticmethod
     def get_next_schedule_by_current_schedule_id(schedules, current_schedule_id):
         next_schedule_index = Schedule.get_schedule_index_by_schedule_id(schedules, current_schedule_id) + 1
+        if next_schedule_index < len(schedules):
+            return schedules[next_schedule_index]
+        return None
+
+    @staticmethod
+    def get_next_schedule_by_specified_time(schedules, specified_time):
+        next_schedule_index = Schedule.get_schedule_index_by_specified_time(schedules, specified_time) + 1
         if next_schedule_index < len(schedules):
             return schedules[next_schedule_index]
         return None

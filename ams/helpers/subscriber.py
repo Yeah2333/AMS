@@ -6,7 +6,7 @@ import yaml
 from ams import AttrDict
 from ams.helpers import Topic, Schedule, Hook, Condition, Publisher
 from ams.helpers import StateMachine as StateMachineHelper
-from ams.structures import EventLoop, Autoware, Vehicle, Dispatcher, AutowareInterface
+from ams.structures import EventLoop, Autoware, Vehicle, Dispatcher, AutowareInterface, InfraController, TrafficSignal
 
 
 class Subscriber(object):
@@ -117,6 +117,22 @@ class Subscriber(object):
             from_target=target_vehicle,
             categories=Vehicle.CONST.TOPIC.CATEGORIES.STATUS,
             use_wild_card=True
+        )
+
+    @classmethod
+    def get_traffic_signal_cycle_topic(cls, target_infra_controller, target_traffic_signal):
+        return Topic.get_topic(
+            from_target=target_infra_controller,
+            to_target=target_traffic_signal,
+            categories=InfraController.CONST.TOPIC.CATEGORIES.CYCLE,
+        )
+
+    @classmethod
+    def get_traffic_signal_schedules_topic(cls, target_infra_controller, target_traffic_signal):
+        return Topic.get_topic(
+            from_target=target_infra_controller,
+            to_target=target_traffic_signal,
+            categories=InfraController.CONST.TOPIC.CATEGORIES.SCHEDULES,
         )
 
     @classmethod
@@ -342,3 +358,14 @@ class Subscriber(object):
     def on_vehicle_status_message(cls, _client, user_data, topic, vehicle_status_message):
         user_data["target_vehicle"] = Topic.get_from_target(topic)
         Hook.set_status(user_data["kvs_client"], user_data["target_vehicle"], vehicle_status_message.body)
+
+    @classmethod
+    def on_traffic_signal_cycle_message(cls, _client, user_data, _topic, cycle_message):
+        config = Hook.get_config(user_data["kvs_client"], user_data["target_traffic_signal"], TrafficSignal.Config)
+        config.cycle = cycle_message.body.cycle
+        Hook.set_config(user_data["kvs_client"], user_data["target_traffic_signal"], config)
+
+    @classmethod
+    def on_traffic_signal_schedules_message(cls, _client, user_data, _topic, schedules_message):
+        Hook.set_received_schedules(
+            user_data["kvs_client"], user_data["target_traffic_signal"], schedules_message.body.schedules)
