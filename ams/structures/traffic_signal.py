@@ -72,7 +72,9 @@ status_template = EventLoop.Status.get_template()
 status_template.update({
     "event": "e0",
     "light_color": "red",
-    "light_color_schedules_id": "s0"
+    "light_color_schedules_id": "s0",
+    "next_light_color": "green",
+    "next_update_time": "0"
 })
 
 status_schema = EventLoop.Status.get_schema()
@@ -89,6 +91,16 @@ status_schema.update({
     },
     "light_color_schedules_id": {
         "type": "string",
+        "required": True,
+        "nullable": True,
+    },
+    "next_light_color": {
+        "type": "string",
+        "required": True,
+        "nullable": True,
+    },
+    "next_update_time": {
+        "type": "number",
         "required": True,
         "nullable": True,
     }

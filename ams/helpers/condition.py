@@ -2,7 +2,7 @@
 # coding: utf-8
 
 from ams.helpers import Hook, Schedule
-from ams.structures import Vehicle, Dispatcher
+from ams.structures import Vehicle, Dispatcher, TrafficSignal
 
 
 class Condition(object):
@@ -148,4 +148,19 @@ class Condition(object):
         schedules = Hook.get_schedules(kvs_client, target)
         if schedules is None:
             return False
-        return schedules[-1].period.end < Schedule.get_time() + margin
+        current_time = Schedule.get_time()
+        if len(list(filter(lambda x: x.period.end < current_time, schedules))) < 1:
+            return True
+        return schedules[-1].period.end < current_time + margin
+
+    @classmethod
+    def traffic_signal_light_color_updated(cls, kvs_client, target):
+        status = Hook.get_status(kvs_client, target, TrafficSignal.Status)
+        schedules = Hook.get_schedules(kvs_client, target)
+        schedule = Schedule.get_schedule_by_specified_time(schedules, Schedule.get_time())
+        return status.light_color == schedule.event and status.next_light_color is None is status.next_update_time
+
+    @classmethod
+    def traffic_signal_next_light_color_updated(cls, kvs_client, target):
+        status = Hook.get_status(kvs_client, target, TrafficSignal.Status)
+        return None not in [status.next_light_color, status.next_update_time]

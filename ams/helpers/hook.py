@@ -481,10 +481,15 @@ class Hook(object):
         return None
 
     @classmethod
-    def generate_traffic_signal_schedules(cls, kvs_client, target_traffic_signal):
+    def generate_traffic_signal_schedules_from_cycle(cls, kvs_client, target_traffic_signal):
         config = cls.get_config(kvs_client, target_traffic_signal, TrafficSignal.Config)
         start_time = Schedule.get_time()
-        schedules = [Schedule.get_schedule_from_cycle([target_traffic_signal], config.cycle, start_time)]
+        schedules = []
+        while True:
+            if 2 < len(schedules):
+                break
+            schedules.append(Schedule.get_schedule_from_cycle([target_traffic_signal], config.cycle, start_time))
+            start_time = schedules[-1].period.end
         cls.set_schedules(kvs_client, target_traffic_signal, schedules)
 
     @classmethod
@@ -598,30 +603,25 @@ class Hook(object):
             kvs_client, target_dispatcher, target_vehicle, transportation_status, get_key)
 
     @classmethod
-    def update_traffic_signal_color(cls, kvs_client, target_traffic_signal):
-        traffic_signal_status = Hook.get_status(kvs_client, target_traffic_signal, TrafficSignal.Status)
-        traffic_signal_schedules = Hook.get_schedules(kvs_client, target_traffic_signal)
-        if traffic_signal_schedules is not None:
-
-            schedule = Schedule.get_schedule_by_specified_time(
-                traffic_signal_schedules, Schedule.get_time())
-            if schedule is not None:
-                if traffic_signal_status.light_color != schedule.event:
-                    traffic_signal_status.light_color = schedule.event
-                    Hook.set_status(kvs_client, target_traffic_signal, traffic_signal_status)
+    def update_traffic_signal_light_color(cls, kvs_client, target_traffic_signal):
+        status = Hook.get_status(kvs_client, target_traffic_signal, TrafficSignal.Status)
+        schedules = Hook.get_schedules(kvs_client, target_traffic_signal)
+        if schedules is not None:
+            schedule = Schedule.get_schedule_by_specified_time(schedules, Schedule.get_time())
+            if status.light_color != schedule.event:
+                status.light_color = schedule.event
+                status.next_light_color = None
+                status.next_update_time = None
+                Hook.set_status(kvs_client, target_traffic_signal, status)
 
     @classmethod
-    def update_traffic_signal_schedules(cls, kvs_client, target_traffic_signal, margin=60.0):
-        schedules = cls.get_schedules(kvs_client, target_traffic_signal)
-        config = cls.get_config(kvs_client, target_traffic_signal, TrafficSignal.Config)
-        current_time = Schedule.get_time()
-        while True:
-            start_time = schedules[-1].period.end
-            if current_time + margin <= start_time:
-                break
-            schedules.append(Schedule.get_schedule_from_cycle([target_traffic_signal], config.cycle, start_time))
-        schedules = list(filter(lambda x: current_time < x.period.end, schedules))
-        cls.set_schedules(kvs_client, target_traffic_signal, schedules)
+    def update_traffic_signal_next_light_color(cls, kvs_client, target_traffic_signal):
+        status = Hook.get_status(kvs_client, target_traffic_signal, TrafficSignal.Status)
+        schedules = Hook.get_schedules(kvs_client, target_traffic_signal)
+        next_schedule = Schedule.get_next_schedule_by_specified_time(schedules, Schedule.get_time())
+        status.next_light_color = next_schedule.event
+        status.next_update_time = next_schedule.period.start
+        Hook.set_status(kvs_client, target_traffic_signal, status)
 
     @classmethod
     def delete_config(cls, kvs_client, target):

@@ -3,7 +3,7 @@
 
 from time import time, sleep
 
-from ams.helpers import Hook, Condition, Publisher, Subscriber
+from ams.helpers import Hook, Condition, Publisher, Subscriber, Schedule
 from ams.helpers import StateMachine as StateMachineHelper
 from ams.nodes.event_loop import EventLoop
 from ams.structures import TrafficSignal as Structure
@@ -48,12 +48,13 @@ class TrafficSignal(EventLoop):
         StateMachineHelper.attach(
             state_machine_data,
             [
-                Hook.update_traffic_signal_color,
-                Hook.generate_traffic_signal_schedules,
-                Hook.update_traffic_signal_schedules,
+                Hook.update_traffic_signal_light_color,
+                Hook.update_traffic_signal_next_light_color,
+                Hook.generate_traffic_signal_schedules_from_cycle,
                 Publisher.publish_traffic_signal_status,
                 Condition.schedules_exists,
-                Condition.on_schedule_close_to_the_end
+                Condition.traffic_signal_light_color_updated,
+                Condition.traffic_signal_next_light_color_updated,
             ],
             self.user_data
         )
@@ -66,11 +67,15 @@ class TrafficSignal(EventLoop):
             updated_flag = False
             if event is not None:
                 updated_flag = StateMachineHelper.update_state(state_machine_data, event)
-
             if not updated_flag:
-                StateMachineHelper.update_state(state_machine_data, None)
+                updated_flag = StateMachineHelper.update_state(state_machine_data, None)
 
-            status.state = StateMachineHelper.get_state(state_machine_data)
-            Hook.set_status(self.user_data["kvs_client"], self.user_data["target_traffic_signal"], status)
-
-            sleep(max(0, self.dt - (time()-start_time)))
+            if updated_flag:
+                status = Hook.get_status(
+                    self.user_data["kvs_client"], self.user_data["target_traffic_signal"], self.Status)
+                status.updated_at = Schedule.get_time()
+                status.state = StateMachineHelper.get_state(state_machine_data)
+                Hook.set_status(self.user_data["kvs_client"], self.user_data["target_traffic_signal"], status)
+            else:
+                if status.state == "UpdatingLightColor":
+                    sleep(max(0, self.dt - (time() - start_time)))
