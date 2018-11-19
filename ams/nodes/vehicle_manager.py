@@ -5,12 +5,12 @@ from time import sleep
 
 from ams.helpers import Subscriber
 from ams.helpers import StateMachine as StateMachineHelper
-from ams.structures import Dispatcher as Structure
+from ams.structures import VehicleManager as Structure
 from ams.structures import Vehicle
 from ams.nodes.event_loop import EventLoop
 
 
-class Dispatcher(EventLoop):
+class VehicleManager(EventLoop):
 
     Config = Structure.Config
     Status = Structure.Status
@@ -18,10 +18,10 @@ class Dispatcher(EventLoop):
     Message = Structure.Message
 
     def __init__(self, config, status, state_machine_path=None):
-        super(Dispatcher, self).__init__(config, status)
+        super(VehicleManager, self).__init__(config, status)
 
         self.user_data["state_machine_path"] = state_machine_path
-        self.user_data["target_dispatcher"] = self.config.target_self
+        self.user_data["target_vehicle_manager"] = self.config.target_self
         self.user_data["targets"] = self.config.targets
 
         for target in self.config.target_vehicles:

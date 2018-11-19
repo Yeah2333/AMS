@@ -6,7 +6,7 @@ import yaml
 from ams import VERSION, AttrDict
 from ams.helpers import Topic, Hook, Schedule
 from ams.structures import (
-    Autoware, AutowareInterface, Vehicle, Dispatcher, TrafficSignal)
+    Autoware, AutowareInterface, Vehicle, VehicleManager, TrafficSignal)
 
 
 class Publisher(object):
@@ -60,18 +60,18 @@ class Publisher(object):
         )
 
     @classmethod
-    def get_vehicle_config_topic(cls, target_vehicle, target_dispatcher):
+    def get_vehicle_config_topic(cls, target_vehicle, target_vehicle_manager):
         return Topic.get_topic(
             from_target=target_vehicle,
-            to_target=target_dispatcher,
+            to_target=target_vehicle_manager,
             categories=Vehicle.CONST.TOPIC.CATEGORIES.CONFIG
         )
 
     @classmethod
-    def get_vehicle_status_topic(cls, target_vehicle, target_dispatcher):
+    def get_vehicle_status_topic(cls, target_vehicle, target_vehicle_manager):
         return Topic.get_topic(
             from_target=target_vehicle,
-            to_target=target_dispatcher,
+            to_target=target_vehicle_manager,
             categories=Vehicle.CONST.TOPIC.CATEGORIES.STATUS
         )
 
@@ -91,11 +91,11 @@ class Publisher(object):
         )
 
     @classmethod
-    def get_transportation_status_message_topic(cls, target_dispatcher, target_vehicle):
+    def get_transportation_status_message_topic(cls, target_vehicle_manager, target_vehicle):
         return Topic.get_topic(
-            from_target=target_dispatcher,
+            from_target=target_vehicle_manager,
             to_target=target_vehicle,
-            categories=Dispatcher.CONST.TOPIC.CATEGORIES.TRANSPORTATION_STATUS
+            categories=VehicleManager.CONST.TOPIC.CATEGORIES.TRANSPORTATION_STATUS
         )
 
     @classmethod
@@ -103,7 +103,7 @@ class Publisher(object):
         return Topic.get_topic(
             from_target=from_target,
             to_target=to_target,
-            categories=Dispatcher.CONST.TOPIC.CATEGORIES.SCHEDULES
+            categories=VehicleManager.CONST.TOPIC.CATEGORIES.SCHEDULES
         )
 
     @classmethod
@@ -171,8 +171,8 @@ class Publisher(object):
         pubsub_client.publish(topic, message)
 
     @classmethod
-    def publish_vehicle_config(cls, pubsub_client, target_vehicle, target_dispatcher, vehicle_config):
-        topic = cls.get_vehicle_config_topic(target_vehicle, target_dispatcher)
+    def publish_vehicle_config(cls, pubsub_client, target_vehicle, target_vehicle_manager, vehicle_config):
+        topic = cls.get_vehicle_config_topic(target_vehicle, target_vehicle_manager)
         message = Vehicle.Message.Config.new_data(**{
             "header": {
                 "id": Schedule.get_id(),
@@ -184,8 +184,8 @@ class Publisher(object):
         pubsub_client.publish(topic, message)
 
     @classmethod
-    def publish_vehicle_status(cls, pubsub_client, target_vehicle, target_dispatcher, vehicle_status):
-        topic = cls.get_vehicle_status_topic(target_vehicle, target_dispatcher)
+    def publish_vehicle_status(cls, pubsub_client, target_vehicle, target_vehicle_manager, vehicle_status):
+        topic = cls.get_vehicle_status_topic(target_vehicle, target_vehicle_manager)
         message = Vehicle.Message.Status.new_data(**{
             "header": {
                 "id": Schedule.get_id(),
@@ -206,7 +206,7 @@ class Publisher(object):
         schedule_id = Hook.get_status(kvs_client, target_vehicle, Vehicle.Status).schedule_id
         if schedule_id is not None:
             schedule = Schedule.get_schedule_by_id(Hook.get_schedules(kvs_client, target_vehicle), schedule_id)
-            if schedule.event == Dispatcher.CONST.TRANSPORTATION.EVENT.SEND_LANE_ARRAY:
+            if schedule.event == VehicleManager.CONST.TRANSPORTATION.EVENT.SEND_LANE_ARRAY:
                 if schedule.route_code is not None:
                     topic = cls.get_route_code_topic(target_vehicle, target_autoware)
                     message = {
@@ -226,9 +226,9 @@ class Publisher(object):
 
     @classmethod
     def publish_transportation_status_message(
-            cls, pubsub_client, target_dispatcher, target_vehicle, transportation_status):
-        topic = cls.get_transportation_status_message_topic(target_dispatcher, target_vehicle)
-        transportation_status_message = Dispatcher.Message.TransportationStatus.new_data(**{
+            cls, pubsub_client, target_vehicle_manager, target_vehicle, transportation_status):
+        topic = cls.get_transportation_status_message_topic(target_vehicle_manager, target_vehicle)
+        transportation_status_message = VehicleManager.Message.TransportationStatus.new_data(**{
             "header": {
                 "id": Schedule.get_id(),
                 "time": Schedule.get_time(),
@@ -243,7 +243,7 @@ class Publisher(object):
         if schedules_target is None:
             schedules_target = to_target
         topic = cls.get_schedules_message_topic(from_target, to_target)
-        schedules_message = Dispatcher.Message.Schedules.new_data(**{
+        schedules_message = VehicleManager.Message.Schedules.new_data(**{
             "header": {
                 "id": Schedule.get_id(),
                 "time": Schedule.get_time(),

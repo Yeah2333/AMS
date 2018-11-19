@@ -6,7 +6,7 @@ import yaml
 from ams import AttrDict
 from ams.helpers import Topic, Schedule, Hook, Condition, Publisher
 from ams.helpers import StateMachine as StateMachineHelper
-from ams.structures import EventLoop, Autoware, Vehicle, Dispatcher, AutowareInterface, InfraController, TrafficSignal
+from ams.structures import EventLoop, Autoware, Vehicle, VehicleManager, AutowareInterface, InfraController, TrafficSignal
 
 
 class Subscriber(object):
@@ -54,20 +54,20 @@ class Subscriber(object):
         )
 
     @classmethod
-    def get_transportation_status_topic(cls, target_dispatcher, target_vehicle):
+    def get_transportation_status_topic(cls, target_vehicle_manager, target_vehicle):
         return Topic.get_topic(
-            from_target=target_dispatcher,
+            from_target=target_vehicle_manager,
             to_target=target_vehicle,
-            categories=Dispatcher.CONST.TOPIC.CATEGORIES.TRANSPORTATION_STATUS,
+            categories=VehicleManager.CONST.TOPIC.CATEGORIES.TRANSPORTATION_STATUS,
             use_wild_card=True
         )
 
     @classmethod
-    def get_vehicle_schedules_topic(cls, target_dispatcher, target_vehicle):
+    def get_vehicle_schedules_topic(cls, target_vehicle_manager, target_vehicle):
         return Topic.get_topic(
-            from_target=target_dispatcher,
+            from_target=target_vehicle_manager,
             to_target=target_vehicle,
-            categories=Dispatcher.CONST.TOPIC.CATEGORIES.SCHEDULES,
+            categories=VehicleManager.CONST.TOPIC.CATEGORIES.SCHEDULES,
             use_wild_card=True
         )
 
@@ -214,17 +214,17 @@ class Subscriber(object):
 
     @classmethod
     def on_transportation_status_message(cls, _client, user_data, topic, transportation_status_message):
-        if transportation_status_message.status.state == Dispatcher.CONST.TRANSPORTATION.STATE.HANDSHAKE:
+        if transportation_status_message.status.state == VehicleManager.CONST.TRANSPORTATION.STATE.HANDSHAKE:
             vehicle_config = Hook.get_config(
                 user_data["kvs_client"], user_data["target_vehicle"], Vehicle.Config)
-            vehicle_config["target_dispatcher"] = Topic.get_from_target(topic)
+            vehicle_config["target_vehicle_manager"] = Topic.get_from_target(topic)
 
             set_flag = Hook.set_config(
                 user_data["kvs_client"], user_data["target_vehicle"], vehicle_config)
             if set_flag:
                 Publisher.publish_vehicle_config(
                     user_data["kvs_client"], user_data["target_vehicle"],
-                    user_data["target_dispatcher"], vehicle_config)
+                    user_data["target_vehicle_manager"], vehicle_config)
 
     @classmethod
     def on_vehicle_schedules_message(cls, _client, user_data, _topic, schedules_message):
@@ -278,7 +278,7 @@ class Subscriber(object):
                     "maps_client": user_data["maps_client"],
                     "target_vehicle": user_data["target_vehicle"],
                     "target_autoware": user_data["target_autoware"],
-                    "target_dispatcher": user_data["target_dispatcher"],
+                    "target_vehicle_manager": user_data["target_vehicle_manager"],
                 }
                 if vehicle_status.state is not None:
                     StateMachineHelper.reset_state(state_machine_data, vehicle_status.state)
@@ -293,7 +293,7 @@ class Subscriber(object):
                         Publisher.publish_route_code,
                         Publisher.publish_state_cmd,
                         Condition.vehicle_located,
-                        Condition.dispatcher_assigned,
+                        Condition.vehicle_manager_assigned,
                         Condition.vehicle_schedules_exists,
                         Condition.vehicle_route_point_updated,
                         Condition.vehicle_status_schedule_id_initialized,
@@ -335,7 +335,7 @@ class Subscriber(object):
                             Hook.set_status(user_data["kvs_client"], user_data["target_vehicle"], new_vehicle_status)
 
             Publisher.publish_vehicle_status(
-                user_data["pubsub_client"], user_data["target_vehicle"], user_data["target_dispatcher"],
+                user_data["pubsub_client"], user_data["target_vehicle"], user_data["target_vehicle_manager"],
                 vehicle_status)
 
     @classmethod

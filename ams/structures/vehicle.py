@@ -38,7 +38,7 @@ CONST = get_namedtuple_from_dict("CONST", const)
 config_template = EventLoop.Config.get_template()
 config_template.update({
     "target_autoware": Target.get_template(),
-    "target_dispatcher": Target.get_template(),
+    "target_vehicle_manager": Target.get_template(),
     "upper_distance_from_stopline": 50.0
 })
 
@@ -50,7 +50,7 @@ config_schema.update({
         "required": True,
         "nullable": False,
     },
-    "target_dispatcher": {
+    "target_vehicle_manager": {
         "type": "dict",
         "schema": Target.get_schema(),
         "required": True,

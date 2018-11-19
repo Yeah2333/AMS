@@ -21,8 +21,8 @@ topic["CATEGORIES"].update({
 const = {}
 const.update(event_loop_const)
 const.update({
-    "NODE_NAME": "dispatcher",
-    "ROLE_NAME": "dispatcher",
+    "NODE_NAME": "vehicle_manager",
+    "ROLE_NAME": "vehicle_manager",
     "TOPIC": topic,
     "TRANSPORTATION": {
         "EVENT": {
@@ -276,7 +276,7 @@ class Message(EventLoop.Message):
     Schedules = SchedulesMessage
 
 
-class Dispatcher(EventLoop):
+class VehicleManager(EventLoop):
     CONST = CONST
     Config = Config
     TransportationConfig = TransportationConfig

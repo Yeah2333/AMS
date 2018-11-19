@@ -8,7 +8,7 @@ from ams import VERSION, logger
 from ams.helpers import Target, Schedule, Route, Simulator
 from ams.structures import (
     CLIENT, MessageHeader, Pose, RoutePoint,
-    EventLoop, Autoware, AutowareInterface, Vehicle, Dispatcher, TrafficSignal)
+    EventLoop, Autoware, AutowareInterface, Vehicle, VehicleManager, TrafficSignal)
 
 
 class Hook(object):
@@ -96,21 +96,21 @@ class Hook(object):
         ])
 
     @classmethod
-    def get_transportation_config_key(cls, target_dispatcher, target_vehicle):
+    def get_transportation_config_key(cls, target_vehicle_manager, target_vehicle):
         return CLIENT.KVS.KEY_PATTERN_DELIMITER.join(
             [
-                Target.get_code(target_dispatcher),
+                Target.get_code(target_vehicle_manager),
                 Target.get_code(target_vehicle)
-            ] + Dispatcher.CONST.TOPIC.CATEGORIES.TRANSPORTATION_CONFIG
+            ] + VehicleManager.CONST.TOPIC.CATEGORIES.TRANSPORTATION_CONFIG
         )
 
     @classmethod
-    def get_transportation_status_key(cls, target_dispatcher, target_vehicle):
+    def get_transportation_status_key(cls, target_vehicle_manager, target_vehicle):
         return CLIENT.KVS.KEY_PATTERN_DELIMITER.join(
             [
-                Target.get_code(target_dispatcher),
+                Target.get_code(target_vehicle_manager),
                 Target.get_code(target_vehicle)
-            ] + Dispatcher.CONST.TOPIC.CATEGORIES.TRANSPORTATION_STATUS)
+            ] + VehicleManager.CONST.TOPIC.CATEGORIES.TRANSPORTATION_STATUS)
 
     @classmethod
     def get_relation_key(cls, target_owner, relation_name, from_id, to_id):
@@ -151,19 +151,19 @@ class Hook(object):
         return value
 
     @classmethod
-    def get_transportation_config(cls, kvs_client, target_dispatcher, target_vehicle):
-        key = cls.get_transportation_config_key(target_dispatcher, target_vehicle)
+    def get_transportation_config(cls, kvs_client, target_vehicle_manager, target_vehicle):
+        key = cls.get_transportation_config_key(target_vehicle_manager, target_vehicle)
         value = kvs_client.get(key)
         if value.__class__.__name__ == "dict":
-            value = Dispatcher.TransportationConfig.new_data(**value)
+            value = VehicleManager.TransportationConfig.new_data(**value)
         return value
 
     @classmethod
-    def get_transportation_status(cls, kvs_client, target_dispatcher, target_vehicle):
-        key = cls.get_transportation_status_key(target_dispatcher, target_vehicle)
+    def get_transportation_status(cls, kvs_client, target_vehicle_manager, target_vehicle):
+        key = cls.get_transportation_status_key(target_vehicle_manager, target_vehicle)
         value = kvs_client.get(key)
         if value.__class__.__name__ == "dict":
-            value = Dispatcher.TransportationStatus.new_data(**value)
+            value = VehicleManager.TransportationStatus.new_data(**value)
         return value
 
     @classmethod
@@ -264,34 +264,34 @@ class Hook(object):
         return kvs_client.set(key, value)
 
     @classmethod
-    def set_transportation_config(cls, kvs_client, target_dispatcher, target_vehicle, transportation_config):
+    def set_transportation_config(cls, kvs_client, target_vehicle_manager, target_vehicle, transportation_config):
         return kvs_client.set(
-            cls.get_transportation_config_key(target_dispatcher, target_vehicle),
+            cls.get_transportation_config_key(target_vehicle_manager, target_vehicle),
             transportation_config
         )
 
     @classmethod
     def set_transportation_status(
-            cls, kvs_client, target_dispatcher, target_vehicle, transportation_status, get_key=None):
+            cls, kvs_client, target_vehicle_manager, target_vehicle, transportation_status, get_key=None):
         return kvs_client.set(
-            cls.get_transportation_status_key(target_dispatcher, target_vehicle),
+            cls.get_transportation_status_key(target_vehicle_manager, target_vehicle),
             transportation_status,
             get_key=get_key
         )
 
     @classmethod
-    def set_vehicle_api_key_to_active_list(cls, kvs_client, target_dispatcher, vehicle_config, dispatcher_config):
-        dispatcher_config.active_api_keys.append(vehicle_config.activation)
-        dispatcher_config.inactive_api_keys.remove(vehicle_config.activation)
-        return cls.set_config(kvs_client, target_dispatcher, dispatcher_config)
+    def set_vehicle_api_key_to_active_list(cls, kvs_client, target_vehicle_manager, vehicle_config, vehicle_manager_config):
+        vehicle_manager_config.active_api_keys.append(vehicle_config.activation)
+        vehicle_manager_config.inactive_api_keys.remove(vehicle_config.activation)
+        return cls.set_config(kvs_client, target_vehicle_manager, vehicle_manager_config)
 
     @classmethod
-    def set_vehicle_api_key_to_inactive_list(cls, kvs_client, target_dispatcher, vehicle_config, dispatcher_config):
-        if vehicle_config.activation not in dispatcher_config.inactive_api_keys:
-            dispatcher_config.inactive_api_keys.append(vehicle_config.activation)
-        if vehicle_config.activation in dispatcher_config.active_api_keys:
-            dispatcher_config.active_api_keys.remove(vehicle_config.activation)
-        return cls.set_config(kvs_client, target_dispatcher, dispatcher_config)
+    def set_vehicle_api_key_to_inactive_list(cls, kvs_client, target_vehicle_manager, vehicle_config, vehicle_manager_config):
+        if vehicle_config.activation not in vehicle_manager_config.inactive_api_keys:
+            vehicle_manager_config.inactive_api_keys.append(vehicle_config.activation)
+        if vehicle_config.activation in vehicle_manager_config.active_api_keys:
+            vehicle_manager_config.active_api_keys.remove(vehicle_config.activation)
+        return cls.set_config(kvs_client, target_vehicle_manager, vehicle_manager_config)
 
     @classmethod
     def set_relation(cls, kvs_client, target_owner, relation_name, from_id, to_id):
@@ -540,7 +540,7 @@ class Hook(object):
         vehicle_schedules = cls.get_schedules(kvs_client, target_vehicle)
         if None not in [vehicle_status, vehicle_schedules]:
             vehicle_schedule = Schedule.get_schedule_by_id(vehicle_schedules, vehicle_status.schedule_id)
-            if vehicle_schedule.event == Dispatcher.CONST.TRANSPORTATION.EVENT.CHANGE_ROUTE:
+            if vehicle_schedule.event == VehicleManager.CONST.TRANSPORTATION.EVENT.CHANGE_ROUTE:
                 vehicle_schedule = Schedule.get_next_schedule_by_current_schedule_id(
                     vehicle_schedules, vehicle_status.schedule_id)
             if vehicle_schedule is not None:
@@ -596,11 +596,11 @@ class Hook(object):
 
     @classmethod
     def update_and_set_transportation_status(
-            cls, kvs_client, target_dispatcher, target_vehicle, transportation_status, new_state, get_key):
+            cls, kvs_client, target_vehicle_manager, target_vehicle, transportation_status, new_state, get_key):
         transportation_status.state = new_state
         transportation_status.updated_at = Schedule.get_time()
         return cls.set_transportation_status(
-            kvs_client, target_dispatcher, target_vehicle, transportation_status, get_key)
+            kvs_client, target_vehicle_manager, target_vehicle, transportation_status, get_key)
 
     @classmethod
     def update_traffic_signal_light_color(cls, kvs_client, target_traffic_signal):
@@ -630,8 +630,8 @@ class Hook(object):
         return True
 
     @classmethod
-    def delete_transportation_status(cls, kvs_client, target_dispatcher, target_vehicle):
-        key = cls.get_transportation_status_key(target_dispatcher, target_vehicle)
+    def delete_transportation_status(cls, kvs_client, target_vehicle_manager, target_vehicle):
+        key = cls.get_transportation_status_key(target_vehicle_manager, target_vehicle)
         kvs_client.delete(key)
         return True
 

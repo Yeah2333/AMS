@@ -2,7 +2,7 @@
 # coding: utf-8
 
 from ams.helpers import Hook, Schedule
-from ams.structures import Vehicle, Dispatcher, TrafficSignal
+from ams.structures import Vehicle, VehicleManager, TrafficSignal
 
 
 class Condition(object):
@@ -57,10 +57,10 @@ class Condition(object):
         return False
 
     @classmethod
-    def dispatcher_assigned(cls, kvs_client, target_vehicle):
+    def vehicle_manager_assigned(cls, kvs_client, target_vehicle):
         vehicle_config = Hook.get_config(kvs_client, target_vehicle, Vehicle.Config)
         if vehicle_config is not None:
-            return vehicle_config.target_dispatcher is not None
+            return vehicle_config.target_vehicle_manager is not None
         return False
 
     @classmethod
@@ -97,7 +97,7 @@ class Condition(object):
         vehicle_schedules = Hook.get_schedules(kvs_client, target_vehicle)
         if None not in [vehicle_status, vehicle_schedules]:
             vehicle_schedule = Schedule.get_schedule_by_id(vehicle_schedules, vehicle_status.schedule_id)
-            if vehicle_schedule.event == Dispatcher.CONST.TRANSPORTATION.EVENT.CHANGE_ROUTE:
+            if vehicle_schedule.event == VehicleManager.CONST.TRANSPORTATION.EVENT.CHANGE_ROUTE:
                 vehicle_schedule = Schedule.get_next_schedule_by_current_schedule_id(
                     vehicle_schedules, vehicle_status.schedule_id)
             if "route_code" in vehicle_schedule:

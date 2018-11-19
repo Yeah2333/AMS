@@ -23,7 +23,7 @@ from ams.structures.client import CLIENT
 from ams.structures.event_loop import EventLoop
 from ams.structures.autoware import Autoware
 from ams.structures.vehicle import Vehicle
-from ams.structures.dispatcher import Dispatcher
+from ams.structures.vehicle_manager import VehicleManager
 
 from ams.structures.autoware_interface import AutowareInterface
 

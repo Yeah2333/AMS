@@ -3,7 +3,7 @@
 
 from ams.helpers import Subscriber
 from ams.structures import Vehicle as Structure
-from ams.structures import AutowareInterface, Autoware, Dispatcher
+from ams.structures import AutowareInterface, Autoware, VehicleManager
 from ams.nodes.event_loop import EventLoop
 
 
@@ -19,21 +19,21 @@ class Vehicle(EventLoop):
         self.user_data["state_machine_path"] = state_machine_path
         self.user_data["target_vehicle"] = self.config.target_self
         self.user_data["target_autoware"] = self.config.target_autoware
-        self.user_data["target_dispatcher"] = self.config.target_dispatcher
+        self.user_data["target_vehicle_manager"] = self.config.target_vehicle_manager
 
-        topic = Subscriber.get_vehicle_schedules_topic(self.config.target_dispatcher, self.config.target_self)
+        topic = Subscriber.get_vehicle_schedules_topic(self.config.target_vehicle_manager, self.config.target_self)
         self.subscribers[topic] = {
             "topic": topic,
             "callback": Subscriber.on_vehicle_schedules_message,
-            "structure": Dispatcher.Message.Schedules,
+            "structure": VehicleManager.Message.Schedules,
             "user_data": self.user_data
         }
 
-        topic = Subscriber.get_transportation_status_topic(self.config.target_dispatcher, self.config.target_self)
+        topic = Subscriber.get_transportation_status_topic(self.config.target_vehicle_manager, self.config.target_self)
         self.subscribers[topic] = {
             "topic": topic,
             "callback": Subscriber.on_transportation_status_message,
-            "structure": Dispatcher.Message.TransportationStatus,
+            "structure": VehicleManager.Message.TransportationStatus,
             "user_data": self.user_data
         }
 

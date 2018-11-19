@@ -10,20 +10,20 @@ import paho.mqtt.client
 from ams import logger
 from ams.helpers import Hook, Publisher, Topic
 from ams.clients import get_pubsub_client_class, get_kvs_client_class
-from ams.nodes import Dispatcher
+from ams.nodes import VehicleManager
 
 
 if __name__ == '__main__':
 
     parser = ArgumentParser()
-    parser.add_argument("-DIFP", "--dispatcher_initials_file_path", type=str, required=True, help="dispatcher_initials_file_path")
+    parser.add_argument("-DIFP", "--vehicle_manager_initials_file_path", type=str, required=True, help="vehicle_manager_initials_file_path")
     parser.add_argument("-MH", "--mqtt_host", type=str, default="localhost", help="mqtt host")
     parser.add_argument("-MP", "--mqtt_port", type=int, default=1883, help="mqtt port")
     parser.add_argument("-MT", "--mqtt_topic", type=str, required=True, help="mqtt topic")
     args = parser.parse_args()
 
-    with open(args.dispatcher_initials_file_path, "r") as f:
-        transportation_config = Dispatcher.TransportationConfig.new_data(**json.load(f)["transportation_config"])
+    with open(args.vehicle_manager_initials_file_path, "r") as f:
+        transportation_config = VehicleManager.TransportationConfig.new_data(**json.load(f)["transportation_config"])
 
     schedules = Hook.generate_vehicle_schedules(transportation_config)
 
